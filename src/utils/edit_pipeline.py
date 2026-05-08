@@ -13,8 +13,9 @@ if torch.cuda.is_available():
     device = "cuda"
 else:
     device = "cpu"
+from diffusers.loaders import LoraLoaderMixin
 
-class EditingPipeline(BasePipeline):
+class EditingPipeline(BasePipeline, LoraLoaderMixin):
     def __call__(
         self,
         prompt: Union[str, List[str]] = None,
@@ -145,8 +146,14 @@ class EditingPipeline(BasePipeline):
                     if module_name == "Attention" and 'attn2' in name:
                         curr = module.attn_probs # size is num_channel,s*s,77
                         ref = d_ref_t2attn[t.item()][name].detach().to(device)
-                        loss += ((curr-ref)**2).sum((1,2)).mean(0)
+                        # Compute loss in float32 for stability
+                        loss += ((curr.to(torch.float32) - ref.to(torch.float32))**2).sum((1,2)).mean(0)
+                
                 loss.backward(retain_graph=False)
+                
+                # Gradient clipping to prevent exploding values
+                torch.nn.utils.clip_grad_norm_([x_in], 1.0)
+                
                 opt.step()
 
                 # recompute the noise

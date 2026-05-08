@@ -1,11 +1,24 @@
-venv/
+# Byte-compiled / optimized / DLL files
 __pycache__/
-.ipynb_checkpoints/
-results/
+*.py[cod]
+*$py.class
+
+# Environments
+venv/
+env/
+.env
+
+# Model weights and cache
+huggingface_cache/
+.cache/
+.huggingface/
+
+# Temporary data and results
 tmp/
-*.pt
-*.png
-*.jpg
-!assets/embeddings_sd_1.4/*.pt
-!assets/test_images/**/*.png
-!assets/test_images/**/*.jpg
+data/outputs/
+results/
+output/
+
+# OS generated files
+.DS_Store
+Thumbs.db

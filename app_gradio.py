@@ -2,10 +2,20 @@ import os
 import pdb
 from PIL import Image
 import gradio as gr
+import pillow_avif
 
 from src.utils.gradio_utils import *
 from src.utils.huggingface_utils import *
 # from utils.generate_synthetic import *
+import os
+
+def get_available_loras():
+    lora_dir = os.path.join("models", "lora")
+    if not os.path.exists(lora_dir):
+        return ["None"]
+    # return list of directories in models/lora
+    loras = [d for d in os.listdir(lora_dir) if os.path.isdir(os.path.join(lora_dir, d))]
+    return ["None"] + loras
 
 
 if __name__=="__main__":
@@ -24,6 +34,7 @@ if __name__=="__main__":
                 img_in_real = gr.Image(type="pil", label="Start by uploading an image", elem_id="input_image")
                 img_in_synth = gr.Image(type="pil", label="Synthesized image", elem_id="input_image_synth", visible=False)
                 gr.Examples( examples="assets/test_images/cats", inputs=[img_in_real])
+                real_caption = gr.Textbox(label="Real Image Caption (Auto-generated, edit to fix hallucinations):", interactive=True, visible=True)
                 prompt = gr.Textbox(value="a high resolution painting of a cat in the style of van gogh", label="Or use a synthetic image. Prompt:", interactive=True)
                 with gr.Row():
                     seed = gr.Number(value=42, label="random seed:", interactive=True)
@@ -59,6 +70,7 @@ if __name__=="__main__":
                     num_ddim = gr.Slider(0, 200, 100, label="Number of DDIM steps", interactive=True, elem_id="slider_ddim", step=10)
                     xa_guidance = gr.Slider(0, 0.25, 0.1, label="Cross Attention guidance", interactive=True, elem_id="slider_xa", step=0.01)
                     edit_mul = gr.Slider(0, 2, 1.0, label="Edit multiplier", interactive=True, elem_id="slider_edit_mul", step=0.05)
+                    lora_model = gr.Dropdown(get_available_loras(), label="Trained LoRA Model", value="None", interactive=True)
 
                 with gr.Accordion("Generating your own directions", open=False):
                     gr.Textbox("We provide 5 different ways of computing new custom directions:", show_label=False)
@@ -73,7 +85,7 @@ if __name__=="__main__":
                     gr.Textbox("If the output image quality is low or has some artifacts, using more steps would be helpful. This can be controlled with the 'Number of DDIM steps' slider.", label="2. Improving Image Quality", show_label=True)
                     gr.Textbox("There can be two reasons why the output image does not have the desired edit applied. Either the cross attention guidance is too strong, or the edit is insufficient. These can be addressed by reducing the 'Cross Attention guidance' slider or increasing the 'Edit multiplier' respectively.", label="3. Amount of edit applied", show_label=True)
 
-        btn_generate.click(launch_generate_sample, [prompt, seed, negative_guidance, num_ddim], [img_in_synth, fpath_z_gen])
+        btn_generate.click(launch_generate_sample, [prompt, seed, negative_guidance, num_ddim, lora_model], [img_in_synth, fpath_z_gen])
         def fn_set_none():
             return gr.update(value=None)
         btn_generate.click(fn_set_none, [], img_in_real)
@@ -126,7 +138,8 @@ if __name__=="__main__":
                             fpath_z_gen, prompt,
                             rad_src, rad_dest,
                             api_key, org_key,
-                            custom_sentences_src, custom_sentences_dest
+                            custom_sentences_src, custom_sentences_dest,
+                            lora_model, real_caption
                         ],
                 [img_out]
         )

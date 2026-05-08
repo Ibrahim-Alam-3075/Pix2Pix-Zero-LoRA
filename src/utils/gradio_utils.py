@@ -62,10 +62,22 @@ def load_sentence_embeddings(l_sentences, tokenizer, text_encoder, device="cuda"
     Returns:
         tuple: A tuple containing the generated PIL image and the filename of the inverse noise map.
 """
-def launch_generate_sample(prompt, seed, negative_scale, num_ddim):
+def launch_generate_sample(prompt, seed, negative_scale, num_ddim, lora_name=None):
+    torch.cuda.empty_cache()
     os.makedirs("tmp", exist_ok=True)
     # do the editing
-    edit_pipe = EditingPipeline.from_pretrained("CompVis/stable-diffusion-v1-4", torch_dtype=torch.float32).to("cuda")
+    edit_pipe = EditingPipeline.from_pretrained("CompVis/stable-diffusion-v1-4", torch_dtype=torch.float16).to("cuda")
+    
+    if lora_name and lora_name != "None":
+        lora_path = os.path.join("models", "lora", lora_name)
+        if os.path.exists(lora_path):
+            print(f"Loading LoRA from {lora_path}")
+            # Use a more robust loading method for PEFT models
+            from peft import PeftModel
+            edit_pipe.unet = PeftModel.from_pretrained(edit_pipe.unet, lora_path)
+        else:
+            print(f"LoRA path {lora_path} not found.")
+
     edit_pipe.scheduler = DDIMScheduler.from_config(edit_pipe.scheduler.config)
     # set the random seed and sample the input noise map
     torch.cuda.manual_seed(int(seed))
@@ -330,7 +342,7 @@ def make_custom_dir(description, sent_type, api_key, org_key, l_custom_sentences
     Returns:
         The edited PIL image resulting from the edit.
 """
-def launch_main(img_in_real, img_in_synth, src, src_custom, dest, dest_custom, num_ddim, xa_guidance, edit_mul, fpath_z_gen, gen_prompt, sent_type_src, sent_type_dest, api_key, org_key, custom_sentences_src, custom_sentences_dest):
+def launch_main(img_in_real, img_in_synth, src, src_custom, dest, dest_custom, num_ddim, xa_guidance, edit_mul, fpath_z_gen, gen_prompt, sent_type_src, sent_type_dest, api_key, org_key, custom_sentences_src, custom_sentences_dest, lora_name=None, real_caption=None):
     d_name2desc = hf_get_all_directions_names()
     d_desc2name = {v:k for k,v in d_name2desc.items()}
     os.makedirs("tmp", exist_ok=True)
@@ -357,7 +369,7 @@ def launch_main(img_in_real, img_in_synth, src, src_custom, dest, dest_custom, n
         dest_emb = hf_get_emb(d_desc2name[dest])
     text_dir = (dest_emb.cuda() - src_emb.cuda())*edit_mul
 
-    if img_in_real is not None and img_in_synth is None:
+    if img_in_real is not None:
         print("using real image")
         # resize the image so that the longer side is 512
         width, height = img_in_real.size
@@ -369,23 +381,27 @@ def launch_main(img_in_real, img_in_synth, src, src_custom, dest, dest_custom, n
         inv_fname = f"tmp/{hash}_ddim_{num_ddim}_inv.pt"
         caption_fname = f"tmp/{hash}_caption.txt"
 
-        # make the caption if it hasn't been made before
-        if not os.path.exists(caption_fname):
-            # BLIP
-            # load the BLIP model
-            model_blip = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base").to("cuda")
-            processor_blip = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-            # generate the caption
-            _inputs = processor_blip(img_in_real, return_tensors="pt").to("cuda")
-            out = model_blip.generate(**_inputs)
-            prompt_str = processor_blip.decode(out[0], skip_special_tokens=True)
-            del model_blip, processor_blip
-            torch.cuda.empty_cache()
-            with open(caption_fname, "w") as f:
-                f.write(prompt_str)
+        if real_caption and real_caption.strip() != "":
+             prompt_str = real_caption
+             print(f"Using USER CAPTION: {prompt_str}")
         else:
-            prompt_str = open(caption_fname, "r").read().strip()
-        print(f"CAPTION: {prompt_str}")
+            # make the caption if it hasn't been made before
+            if not os.path.exists(caption_fname):
+                # BLIP
+                # load the BLIP model
+                model_blip = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base").to("cuda")
+                processor_blip = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+                # generate the caption
+                _inputs = processor_blip(img_in_real, return_tensors="pt").to("cuda")
+                out = model_blip.generate(**_inputs)
+                prompt_str = processor_blip.decode(out[0], skip_special_tokens=True)
+                del model_blip, processor_blip
+                torch.cuda.empty_cache()
+                with open(caption_fname, "w") as f:
+                    f.write(prompt_str)
+            else:
+                prompt_str = open(caption_fname, "r").read().strip()
+            print(f"AUTO CAPTION: {prompt_str}")
         
         # do the inversion if it hasn't been done before
         if not os.path.exists(inv_fname):
@@ -394,7 +410,8 @@ def launch_main(img_in_real, img_in_synth, src, src_custom, dest, dest_custom, n
             pipe_inv.scheduler = DDIMInverseScheduler.from_config(pipe_inv.scheduler.config)
             x_inv, x_inv_image, x_dec_img = pipe_inv( prompt_str, 
                     guidance_scale=1, num_inversion_steps=num_ddim,
-                    img=img_in_real, torch_dtype=torch.float32 )
+                    img=img_in_real, torch_dtype=torch.float32,
+                    lambda_ac=0.0, lambda_kl=0.0 )
             x_inv = x_inv.detach()
             torch.save(x_inv, inv_fname)
             del pipe_inv
@@ -402,8 +419,17 @@ def launch_main(img_in_real, img_in_synth, src, src_custom, dest, dest_custom, n
         else:
             x_inv = torch.load(inv_fname)
 
+        torch.cuda.empty_cache()
         # do the editing
-        edit_pipe = EditingPipeline.from_pretrained("CompVis/stable-diffusion-v1-4", torch_dtype=torch.float32).to("cuda")
+        edit_pipe = EditingPipeline.from_pretrained("CompVis/stable-diffusion-v1-4", torch_dtype=torch.float16).to("cuda")
+        
+        if lora_name and lora_name != "None":
+            lora_path = os.path.join("models", "lora", lora_name)
+            if os.path.exists(lora_path):
+                print(f"Loading LoRA from {lora_path}")
+                from peft import PeftModel
+                edit_pipe.unet = PeftModel.from_pretrained(edit_pipe.unet, lora_path)
+
         edit_pipe.scheduler = DDIMScheduler.from_config(edit_pipe.scheduler.config)
 
         _, edit_pil = edit_pipe(prompt_str,
@@ -412,16 +438,28 @@ def launch_main(img_in_real, img_in_synth, src, src_custom, dest, dest_custom, n
                 edit_dir=text_dir,
                 guidance_amount=xa_guidance,
                 guidance_scale=5.0,
-                negative_prompt=prompt_str # use the unedited prompt for the negative prompt
+                negative_prompt="" # use empty for stability
         )
         del edit_pipe
         torch.cuda.empty_cache()
         return edit_pil[0]
 
-    elif img_in_real is None and img_in_synth is not None:
+    elif img_in_synth is not None:
         print("using synthetic image")
+        if fpath_z_gen == "placeholder":
+             raise gr.Error("No synthetic image found. Please click 'Generate' first to create a base image.")
+        
+        torch.cuda.empty_cache()
         x_inv = torch.load(fpath_z_gen)
-        pipe = EditingPipeline.from_pretrained("CompVis/stable-diffusion-v1-4", torch_dtype=torch.float32).to("cuda")
+        pipe = EditingPipeline.from_pretrained("CompVis/stable-diffusion-v1-4", torch_dtype=torch.float16).to("cuda")
+        
+        if lora_name and lora_name != "None":
+            lora_path = os.path.join("models", "lora", lora_name)
+            if os.path.exists(lora_path):
+                print(f"Loading LoRA from {lora_path}")
+                from peft import PeftModel
+                pipe.unet = PeftModel.from_pretrained(pipe.unet, lora_path)
+
         pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
         rec_pil, edit_pil = pipe(gen_prompt,
             num_inference_steps=num_ddim,
