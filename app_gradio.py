@@ -28,7 +28,7 @@ if __name__=="__main__":
                 with gr.Row():
                     seed = gr.Number(value=42, label="random seed:", interactive=True)
                     negative_guidance = gr.Number(value=5, label="negative guidance:", interactive=True)
-                btn_generate = gr.Button("Generate", label="")
+                btn_generate = gr.Button("Generate")
                 fpath_z_gen = gr.Textbox(value="placeholder", visible=False)
 
             # col B: the output image
@@ -52,7 +52,7 @@ if __name__=="__main__":
                         api_key = gr.Textbox(placeholder="enter you OpenAI API key here", interactive=True, visible=False, label="OpenAI API key:", type="password")
                         org_key = gr.Textbox(placeholder="enter you OpenAI organization key here", interactive=True, visible=False, label="OpenAI Organization:", type="password")
                 with gr.Row():
-                    btn_edit = gr.Button("Run", label="")
+                    btn_edit = gr.Button("Run")
                     # btn_clear = gr.Button("Clear")
 
                 with gr.Accordion("Change editing settings?", open=True):
@@ -133,5 +133,5 @@ if __name__=="__main__":
         gr.HTML("<hr>")
 
     gr.close_all()
-    demo.queue(concurrency_count=1)
-    demo.launch(server_port=8088, server_name="0.0.0.0", debug=True)
+    demo.queue(default_concurrency_limit=1)
+    demo.launch(share=True, debug=True)

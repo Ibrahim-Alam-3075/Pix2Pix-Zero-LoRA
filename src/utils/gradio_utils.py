@@ -17,8 +17,7 @@ from edit_directions import construct_direction
 from edit_pipeline import EditingPipeline
 from ddim_inv import DDIMInversion
 from scheduler import DDIMInverseScheduler
-from lavis.models import load_model_and_preprocess
-from transformers import T5Tokenizer, AutoTokenizer, T5ForConditionalGeneration, BloomForCausalLM
+from transformers import T5Tokenizer, AutoTokenizer, T5ForConditionalGeneration, BloomForCausalLM, BlipProcessor, BlipForConditionalGeneration
 
 
 
@@ -95,7 +94,7 @@ def launch_generate_sample(prompt, seed, negative_scale, num_ddim):
         list of str: List of cleaned sentences.
 """
 def clean_l_sentences(ls):
-    s = [re.sub('\d', '', x) for x in ls]
+    s = [re.sub(r'\d', '', x) for x in ls]
     s = [x.replace(".","").replace("-","").replace(")","").strip() for x in s]
     return s
 
@@ -373,10 +372,14 @@ def launch_main(img_in_real, img_in_synth, src, src_custom, dest, dest_custom, n
         # make the caption if it hasn't been made before
         if not os.path.exists(caption_fname):
             # BLIP
-            model_blip, vis_processors, _ = load_model_and_preprocess(name="blip_caption", model_type="base_coco", is_eval=True, device=torch.device("cuda"))
-            _image = vis_processors["eval"](img_in_real).unsqueeze(0).cuda()
-            prompt_str = model_blip.generate({"image": _image})[0]
-            del model_blip
+            # load the BLIP model
+            model_blip = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base").to("cuda")
+            processor_blip = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+            # generate the caption
+            _inputs = processor_blip(img_in_real, return_tensors="pt").to("cuda")
+            out = model_blip.generate(**_inputs)
+            prompt_str = processor_blip.decode(out[0], skip_special_tokens=True)
+            del model_blip, processor_blip
             torch.cuda.empty_cache()
             with open(caption_fname, "w") as f:
                 f.write(prompt_str)

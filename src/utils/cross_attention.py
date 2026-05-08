@@ -1,10 +1,13 @@
 import torch
-from diffusers.models.attention import CrossAttention
+from diffusers.models.attention_processor import Attention
+
+# Alias for backward compatibility
+CrossAttention = Attention
 
 class MyCrossAttnProcessor:
-    def __call__(self, attn: CrossAttention, hidden_states, encoder_hidden_states=None, attention_mask=None):
+    def __call__(self, attn: Attention, hidden_states, encoder_hidden_states=None, attention_mask=None):
         batch_size, sequence_length, _ = hidden_states.shape
-        attention_mask = attn.prepare_attention_mask(attention_mask, sequence_length)
+        attention_mask = attn.prepare_attention_mask(attention_mask, sequence_length, batch_size)
 
         query = attn.to_q(hidden_states)
 
@@ -52,6 +55,6 @@ def prep_unet(unet):
     # replace the fwd function
     for name, module in unet.named_modules():
         module_name = type(module).__name__
-        if module_name == "CrossAttention":
+        if module_name == "Attention":
             module.set_processor(MyCrossAttnProcessor())
     return unet

@@ -1,0 +1,23 @@
+# Core Dependencies
+torch
+torchvision
+diffusers==0.25.1
+transformers==4.35.2
+huggingface-hub==0.21.4
+accelerate
+safetensors
+tokenizers==0.15.2
+
+# Utilities & UI
+gradio==4.44.1
+numpy==1.26.4
+Pillow
+tqdm
+requests
+scipy
+opencv-python
+
+# For Custom Directions
+openai
+jinja2==3.1.2
+markupsafe==2.1.3

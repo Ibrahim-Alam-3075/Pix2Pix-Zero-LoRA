@@ -1,6 +1,11 @@
-output
-scripts
-src/folder_*.py
-src/ig_*.py
-assets/edit_sentences
-src/utils/edit_pipeline_spatial.py
+venv/
+__pycache__/
+.ipynb_checkpoints/
+results/
+tmp/
+*.pt
+*.png
+*.jpg
+!assets/embeddings_sd_1.4/*.pt
+!assets/test_images/**/*.png
+!assets/test_images/**/*.jpg

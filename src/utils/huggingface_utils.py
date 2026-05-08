@@ -1,7 +1,7 @@
 import os
 import sys
 import torch, torchvision
-from huggingface_hub import hf_hub_url, cached_download, hf_hub_download, HfApi
+from huggingface_hub import hf_hub_download, HfApi
 import joblib
 from pathlib import Path
 import json

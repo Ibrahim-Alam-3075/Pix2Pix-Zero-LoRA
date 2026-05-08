@@ -1,18 +1,44 @@
-# pix2pix-zero
+# pix2pix-zero (Modernized Local Version)
 
 ### [**paper**](https://arxiv.org/abs/2302.03027) | [**website**](https://pix2pixzero.github.io/) | [**demo**](https://huggingface.co/spaces/pix2pix-zero-library/pix2pix-zero-demo) 
-#### **Quick start:** [**Edit images**](#getting-started) | [**Gradio (locally hosted)**](#gradio-demo)
 
-This is author's reimplementation of "Zero-shot Image-to-Image Translation" using the diffusers library. <br>
-The results in the paper are based on the [CompVis](https://github.com/CompVis/stable-diffusion) library, which will be released later. 
+---
 
+## ⚡ Quick Start (Modernized)
+This repository has been updated to work with **Python 3.12**, **CUDA 12.x**, and the latest **Transformers/Diffusers** libraries. We have replaced the buggy legacy `lavis` captioning with standard `transformers` BLIP for stability.
 
-**[New!]** Demo with ability to generate custom directions released on Hugging Face! <br>
-**[New!]** Code for editing real and synthetic images released!
+### 1. Setup
+Run the following in PowerShell to create your environment and install dependencies:
+```powershell
+.\setup_windows.ps1
+.\venv\Scripts\activate
+```
 
+### 2. Invert an Image
+Take a real image and calculate its noise map:
+```powershell
+$env:PYTHONPATH="src"
+python src/inversion.py --input_image assets/test_images/cats/cat_1.png --results_folder results/cat_1
+```
 
+### 3. Edit the Image
+Transform the image using a predefined task (e.g., `cat2dog`):
+```powershell
+$env:PYTHONPATH="src"
+python src/edit_real.py --inversion results/cat_1/inversion/cat_1.pt --prompt results/cat_1/prompt/cat_1.txt --task_name cat2dog --results_folder results/cat_1 --use_float_16
+```
+*Note: Using `--use_float_16` is highly recommended for GPUs with 8GB VRAM (like RTX 4060) to speed up the process by 3-5x.*
 
-<br>
+### 4. Custom Directions (e.g., Human to Anime)
+1. Create `source.txt` (e.g., descriptions of "a photo of a person") and `target.txt` (e.g., "anime style face").
+2. Generate the direction:
+   ```powershell
+   python src/make_edit_direction.py --file_source_sentences source.txt --file_target_sentences target.txt --output_folder assets/embeddings_sd_1.4
+   ```
+3. Use the task name `source2target` in the `edit_real.py` command.
+
+---
+
 <div class="gif">
 <p align="center">
 <img src='assets/main.gif' align="center">

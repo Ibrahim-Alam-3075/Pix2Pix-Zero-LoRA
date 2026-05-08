@@ -6,7 +6,7 @@ import torch
 import requests
 from PIL import Image
 
-from lavis.models import load_model_and_preprocess
+from transformers import BlipProcessor, BlipForConditionalGeneration
 
 from utils.ddim_inv import DDIMInversion
 from utils.scheduler import DDIMInverseScheduler
@@ -36,7 +36,8 @@ if __name__=="__main__":
 
 
     # load the BLIP model
-    model_blip, vis_processors, _ = load_model_and_preprocess(name="blip_caption", model_type="base_coco", is_eval=True, device=torch.device(device))
+    model_blip = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base").to(device)
+    processor_blip = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
     # make the DDIM inversion pipeline    
     pipe = DDIMInversion.from_pretrained(args.model_path, torch_dtype=torch_dtype).to(device)
     pipe.scheduler = DDIMInverseScheduler.from_config(pipe.scheduler.config)
@@ -53,8 +54,9 @@ if __name__=="__main__":
         bname = os.path.basename(img_path).split(".")[0]
         img = Image.open(img_path).resize((512,512), Image.Resampling.LANCZOS)
         # generate the caption
-        _image = vis_processors["eval"](img).unsqueeze(0).to(device)
-        prompt_str = model_blip.generate({"image": _image})[0]
+        _inputs = processor_blip(img, return_tensors="pt").to(device)
+        out = model_blip.generate(**_inputs)
+        prompt_str = processor_blip.decode(out[0], skip_special_tokens=True)
         x_inv, x_inv_image, x_dec_img = pipe(
             prompt_str, 
             guidance_scale=1,

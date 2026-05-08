@@ -95,7 +95,7 @@ class EditingPipeline(BasePipeline):
                     d_ref_t2attn[t.item()] = {}
                     for name, module in self.unet.named_modules():
                         module_name = type(module).__name__
-                        if module_name == "CrossAttention" and 'attn2' in name:
+                        if module_name == "Attention" and 'attn2' in name:
                             attn_mask = module.attn_probs # size is num_channel,s*s,77
                             d_ref_t2attn[t.item()][name] = attn_mask.detach().cpu()
 
@@ -142,7 +142,7 @@ class EditingPipeline(BasePipeline):
                 loss = 0.0
                 for name, module in self.unet.named_modules():
                     module_name = type(module).__name__
-                    if module_name == "CrossAttention" and 'attn2' in name:
+                    if module_name == "Attention" and 'attn2' in name:
                         curr = module.attn_probs # size is num_channel,s*s,77
                         ref = d_ref_t2attn[t.item()][name].detach().to(device)
                         loss += ((curr-ref)**2).sum((1,2)).mean(0)
