@@ -39,6 +39,20 @@ python src/edit_real.py --inversion results/cat_1/inversion/cat_1.pt --prompt re
 
 ---
 
+## 🛠️ Project Implementation & Modernization
+This repository was modernized and stabilized to support a research presentation on Zero-shot Image-to-Image translation. The original codebase suffered from "dependency rot" and was no longer runnable in modern Python environments. 
+
+### **Key Improvements:**
+*   **Environment Stability**: Updated for **Python 3.12** and **CUDA 12.x**.
+*   **Architecture Patches**: Updated U-Net attention hooks to be compatible with modern `diffusers` (0.25+) and `transformers` (4.35+) architectures.
+*   **Robust Captioning**: Replaced the legacy `salesforce-lavis` BLIP implementation with a stable, standard `transformers` BLIP model to resolve runtime tensor mismatches.
+*   **GPU Optimization**: Added `--use_float_16` support, enabling the pipeline to run efficiently on consumer GPUs (e.g., RTX 4060) by reducing VRAM usage and speeding up the editing process by ~5x.
+*   **Reproducibility**: Integrated a `setup_windows.ps1` script for one-click environment configuration.
+
+This version serves as a stable baseline for demonstrating the Pix2Pix-Zero research paper in current software ecosystems.
+
+---
+
 <div class="gif">
 <p align="center">
 <img src='assets/main.gif' align="center">
