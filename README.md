@@ -1,6 +1,6 @@
 # pix2pix-zero (Modernized Local Version)
 
-### [**paper**](https://arxiv.org/abs/2302.03027) | [**website**](https://pix2pixzero.github.io/) | [**demo**](https://huggingface.co/spaces/pix2pix-zero-library/pix2pix-zero-demo) 
+### [**paper**](https://arxiv.org/abs/2302.03027) | [**website**](https://pix2pixzero.github.io/) 
 
 ---
 
