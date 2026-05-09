@@ -15,7 +15,6 @@ huggingface_cache/
 
 # Temporary data and results
 tmp/
-data/outputs/
 results/
 output/
 
