@@ -15,8 +15,7 @@ huggingface_cache/
 
 # Temporary data and results
 tmp/
-results/
-output/
+
 
 # OS generated files
 .DS_Store

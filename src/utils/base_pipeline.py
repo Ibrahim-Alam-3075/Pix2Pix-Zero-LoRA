@@ -2,7 +2,7 @@
 import torch
 import inspect
 from packaging import version
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, Tuple
 
 from transformers import CLIPImageProcessor as CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
 from diffusers import DiffusionPipeline

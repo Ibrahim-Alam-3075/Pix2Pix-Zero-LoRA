@@ -1,8 +1,9 @@
 import pdb, sys
+from PIL import Image
 
 import numpy as np
 import torch
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union, Tuple
 from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
 sys.path.insert(0, "src/utils")
 from base_pipeline import BasePipeline
@@ -16,6 +17,15 @@ else:
 from diffusers.loaders import LoraLoaderMixin
 
 class EditingPipeline(BasePipeline, LoraLoaderMixin):
+    """
+    Pipeline for Pix2Pix-Zero image editing with native LoRA support.
+
+    This pipeline implements the Pix2Pix-Zero algorithm, which enables zero-shot
+    image-to-image translation by preserving cross-attention maps between a
+    reference run and an edited run. It supports loading LoRA weights for
+    specialized style transfer.
+    """
+
     def __call__(
         self,
         prompt: Union[str, List[str]] = None,
@@ -33,12 +43,38 @@ class EditingPipeline(BasePipeline, LoraLoaderMixin):
         cross_attention_kwargs: Optional[Dict[str, Any]] = None,
 
         # pix2pix parameters
-        guidance_amount=0.1,
-        edit_dir=None,
-        x_in=None,
-        only_sample=False, # only perform sampling, and no editing
+        guidance_amount: float = 0.1,
+        edit_dir: Optional[torch.FloatTensor] = None,
+        x_in: Optional[torch.FloatTensor] = None,
+        only_sample: bool = False,
+    ) -> Union[List[Image.Image], Tuple[List[Image.Image], List[Image.Image]]]:
+        """
+        The call function for the pipeline.
 
-    ):
+        Args:
+            prompt (str or List[str]): The prompt or prompts to guide image generation.
+            height (int, optional): The height in pixels of the generated image.
+            width (int, optional): The width in pixels of the generated image.
+            num_inference_steps (int): The number of denoising steps.
+            guidance_scale (float): Higher guidance scale encourages images that are closely linked to the text prompt.
+            negative_prompt (str or List[str], optional): The prompt or prompts to guide what to not include in image generation.
+            num_images_per_prompt (int, optional): The number of images to generate per prompt.
+            eta (float): Corresponds to parameter eta (η) from the DDIM paper.
+            generator (torch.Generator or List[torch.Generator], optional): A torch generator to make generation deterministic.
+            latents (torch.FloatTensor, optional): Pre-generated noisy latents.
+            prompt_embeds (torch.FloatTensor, optional): Pre-generated text embeddings.
+            negative_prompt_embeds (torch.FloatTensor, optional): Pre-generated negative text embeddings.
+            cross_attention_kwargs (dict, optional): A list of keyword arguments passed to the attention processor.
+            guidance_amount (float): The strength of the cross-attention guidance.
+            edit_dir (torch.FloatTensor, optional): The semantic edit direction vector.
+            x_in (torch.FloatTensor, optional): The initial noise latent from inversion.
+            only_sample (bool): If True, only performs reconstruction without editing.
+
+        Returns:
+            List[Image.Image] or Tuple[List[Image.Image], List[Image.Image]]: 
+                If only_sample is True, returns the reconstructed image.
+                Otherwise, returns a tuple of (reconstructed image, edited image).
+        """
 
         x_in.to(dtype=self.unet.dtype, device=self._execution_device)
 

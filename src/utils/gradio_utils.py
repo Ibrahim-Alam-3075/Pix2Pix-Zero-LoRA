@@ -442,6 +442,15 @@ def launch_main(img_in_real, img_in_synth, src, src_custom, dest, dest_custom, n
         )
         del edit_pipe
         torch.cuda.empty_cache()
+        
+        # Save the result to a dedicated folder for the selected style
+        save_folder = os.path.join("results", lora_name if lora_name else "base")
+        os.makedirs(save_folder, exist_ok=True)
+        timestamp = int(time.time())
+        save_path = os.path.join(save_folder, f"result_{timestamp}.png")
+        edit_pil[0].save(save_path)
+        print(f"Result saved to: {save_path}")
+
         return edit_pil[0]
 
     elif img_in_synth is not None:
@@ -1012,13 +1021,13 @@ CSS_main = """
 HTML_header = f"""
     <body>
     <center>
-    <span style="font-size:36px">Zero-shot Image-to-Image Translation</span>
+    <span style="font-size:36px"> Pix2Pix-Zero-LoRA Framework </span>
     <table align=center>
         <tr>
             <td align=center>
                 <center>
-                    <span style="font-size:24px; margin-left: 0px;"><a href='https://pix2pixzero.github.io/'>[Website]</a></span>
-                    <span style="font-size:24px; margin-left: 20px;"><a href='https://github.com/pix2pixzero/pix2pix-zero'>[Code]</a></span>
+                    <span style="font-size:24px; margin-left: 0px;"><a href='https://pix2pixzero.github.io/'>[Base Paper]</a></span>
+                    <span style="font-size:24px; margin-left: 20px;"><a href='https://github.com/'>[Project Code]</a></span>
                 </center>
             </td>
         </tr>
@@ -1028,10 +1037,9 @@ HTML_header = f"""
     <center>
     <div align=center>
         <p align=left>
-        This is a demo for <span style="font-weight: bold;">pix2pix-zero</span>, a diffusion-based image-to-image approach that allows users to 
-        specify the edit direction on-the-fly (e.g., cat to dog). Our method can directly use pre-trained text-to-image diffusion models, such as Stable Diffusion, for editing real and synthetic images while preserving the input image's structure. Our method is training-free and prompt-free, as it requires neither manual text prompting for each input image nor costly fine-tuning for each task.
+        Welcome to the <span style="font-weight: bold;">Pix2Pix-Zero-LoRA Framework</span>, a general-purpose system for parameter-efficient style transfer. By combining the structural guidance of Pix2Pix-Zero with the aesthetic precision of LoRA adapters, this framework allows you to apply any artistic style to real photos while maintaining perfect layout and composition.
         <br>
-        <span style="font-weight: 800;">TL;DR:</span> <span style=" color: #941120;"> no finetuning</span>  required; <span style=" color: #941120;"> no text input</span> needed; input <span style=" color: #941120;"> structure preserved</span>. 
+        <span style="font-weight: 800;">Framework Features:</span> <span style=" color: #941120;"> Plug-and-Play LoRA Styles</span>; <span style=" color: #941120;"> Zero-Shot Image Editing</span>; <span style=" color: #941120;"> Optimized for Windows (8GB VRAM)</span>. 
         </p>
     </div>
     </center>

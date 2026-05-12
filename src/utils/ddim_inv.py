@@ -1,4 +1,5 @@
 import sys
+from PIL import Image
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -19,30 +20,44 @@ else:
 
 
 class DDIMInversion(BasePipeline):
+    """
+    Pipeline for DDIM Inversion.
 
-    def auto_corr_loss(self, x, random_shift=True):
-        B,C,H,W = x.shape
-        assert B==1
+    This pipeline reverses the diffusion process to find the initial noise map
+    that reconstructs a given input image. It includes optional regularization
+    (auto-correlation and KL divergence) to ensure the inverted noise follows
+    a Gaussian distribution.
+    """
+
+    def auto_corr_loss(self, x: torch.FloatTensor, random_shift: bool = True) -> torch.FloatTensor:
+        """
+        Calculate the auto-correlation loss for a noise tensor.
+        """
+        B, C, H, W = x.shape
+        assert B == 1
         x = x.squeeze(0)
-        # x must be shape [C,H,W] now
         reg_loss = 0.0
         for ch_idx in range(x.shape[0]):
-            noise = x[ch_idx][None, None,:,:]
+            noise = x[ch_idx][None, None, :, :]
             while True:
-                if random_shift: roll_amount = randrange(1, noise.shape[2]//2)
-                else: roll_amount = 1
-                reg_loss += (noise*torch.roll(noise, shifts=roll_amount, dims=2)).mean()**2
-                reg_loss += (noise*torch.roll(noise, shifts=roll_amount, dims=3)).mean()**2
+                if random_shift:
+                    roll_amount = randrange(1, noise.shape[2] // 2)
+                else:
+                    roll_amount = 1
+                reg_loss += (noise * torch.roll(noise, shifts=roll_amount, dims=2)).mean()**2
+                reg_loss += (noise * torch.roll(noise, shifts=roll_amount, dims=3)).mean()**2
                 if noise.shape[2] <= 8:
                     break
                 noise = F.avg_pool2d(noise, kernel_size=2)
         return reg_loss
-    
-    def kl_divergence(self, x):
+
+    def kl_divergence(self, x: torch.FloatTensor) -> torch.FloatTensor:
+        """
+        Calculate the KL divergence between the noise distribution and a standard normal distribution.
+        """
         _mu = x.mean()
         _var = x.var()
-        return _var + _mu**2 - 1 - torch.log(_var+1e-7)
-
+        return _var + _mu**2 - 1 - torch.log(_var + 1e-7)
 
     def __call__(
         self,
@@ -55,15 +70,30 @@ class DDIMInversion(BasePipeline):
         output_type: Optional[str] = "pil",
         return_dict: bool = True,
         cross_attention_kwargs: Optional[Dict[str, Any]] = None,
-        img=None, # the input image as a PIL image
-        torch_dtype=torch.float32,
-
-        # inversion regularization parameters
+        img: Image.Image = None,
+        torch_dtype: torch.dtype = torch.float32,
         lambda_ac: float = 20.0,
         lambda_kl: float = 20.0,
         num_reg_steps: int = 5,
         num_ac_rolls: int = 5,
-    ):
+    ) -> Tuple[torch.FloatTensor, List[Image.Image], List[Image.Image]]:
+        """
+        Run the inversion process.
+
+        Args:
+            prompt (str or List[str]): The prompt describing the input image.
+            num_inversion_steps (int): Number of steps for inversion.
+            guidance_scale (float): Scale for classifier-free guidance.
+            img (PIL.Image): The input image to invert.
+            torch_dtype (torch.dtype): The data type for computations (default: float32 for stability).
+            lambda_ac (float): Strength of auto-correlation regularization.
+            lambda_kl (float): Strength of KL divergence regularization.
+
+        Returns:
+            Tuple[torch.FloatTensor, List[Image.Image], List[Image.Image]]:
+                The inverted noise latent, the reconstructed image from the inverted noise,
+                and the initial VAE reconstruction of the source image.
+        """
         
         # 0. modify the unet to be useful :D
         self.unet = prep_unet(self.unet)

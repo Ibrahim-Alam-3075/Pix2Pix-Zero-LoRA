@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pix2pix-zero-lora"
+version = "1.0.0"
+authors = [
+  { name="Muhammad Wahaj" },
+  { name="Muhammad Saad" },
+  { name="Ibrahim Alam" },
+  { name="Sanan Tayyab" },
+]
+description = "LoRA-Guided Pix2Pix-Zero: Parameter-Efficient Style Transfer with Structural Integrity"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "torch>=2.0.0",
+    "torchvision",
+    "diffusers==0.25.1",
+    "transformers==4.35.2",
+    "accelerate",
+    "peft",
+    "gradio",
+    "pillow",
+    "pillow-avif-plugin",
+    "tqdm",
+    "numpy",
+    "openai",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/your-username/pix2pix-zero-ghibli"
+"Bug Tracker" = "https://github.com/your-username/pix2pix-zero-ghibli/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["*"]

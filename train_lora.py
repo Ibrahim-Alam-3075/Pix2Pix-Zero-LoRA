@@ -14,6 +14,10 @@ from diffusers import (
 from transformers import CLIPTextModel, CLIPTokenizer
 from peft import LoraConfig, get_peft_model, LoraModel
 from accelerate import Accelerator
+try:
+    import pillow_avif
+except ImportError:
+    pass
 
 def train():
     parser = argparse.ArgumentParser(description="Simple LoRA training script")
@@ -66,7 +70,13 @@ def train():
         transforms.Normalize([0.5], [0.5]),
     ])
 
-    image_files = [os.path.join(args.instance_data_dir, f) for f in os.listdir(args.instance_data_dir) if f.endswith(('.jpg', '.jpeg', '.png'))]
+    # Support multiple image formats including webp and avif
+    valid_extensions = ('.jpg', '.jpeg', '.png', '.webp', '.avif')
+    image_files = [
+        os.path.join(args.instance_data_dir, f) 
+        for f in os.listdir(args.instance_data_dir) 
+        if f.lower().endswith(valid_extensions)
+    ]
     
     def collate_fn(examples):
         pixel_values = [train_transforms(Image.open(f).convert("RGB")) for f in examples]

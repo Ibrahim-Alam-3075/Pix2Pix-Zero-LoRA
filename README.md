@@ -1,244 +1,148 @@
-# pix2pix-zero (Modernized Local Version)
+# Pix2Pix-Zero-LoRA: A General Framework for Style Transfer
 
-### [**paper**](https://arxiv.org/abs/2302.03027) | [**website**](https://pix2pixzero.github.io/) 
+> [!IMPORTANT]
+> **Academic Credit**: This project is an extension of the foundational research by **Parmar et al.** in their SIGGRAPH 2023 paper: [**"Zero-shot Image-to-Image Translation"**](https://pix2pixzero.github.io/). We have evolved their "Pix2Pix-Zero" architecture into a **general-purpose framework** that supports any artistic style via **LoRA (Low-Rank Adaptation)**.
+
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
+[![CUDA 12.1](https://img.shields.io/badge/CUDA-12.1-green.svg)](https://developer.nvidia.com/cuda-downloads)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+**Pix2Pix-Zero-LoRA** is a high-performance framework designed for researchers and artists who need to perform zero-shot image editing while enforcing specific artistic aesthetics. By decoupling **structural guidance** from **artistic style**, our system allows you to transform real photos into any domain (Anime, Cyberpunk, Pixar, etc.) without losing the layout of the source.
 
 ---
 
-## ⚡ Quick Start (Modernized)
-This repository has been updated to work with **Python 3.12**, **CUDA 12.x**, and the latest **Transformers/Diffusers** libraries. We have replaced the buggy legacy `lavis` captioning with standard `transformers` BLIP for stability.
+## Visual Showcase: Multi-Style Support
 
-### 1. Setup
-Run the following in PowerShell to create your environment and install dependencies:
+Our framework is style-agnostic. Below is our flagship **Studio Ghibli** engine, alongside our newly trained **Cyberpunk 2077** model.
+
+### 🍃 Studio Ghibli (Flagship)
+
+|                                 Source Image (Real Photo)                                  |                                     Ghibli Style Output                                      |
+| :----------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------: |
+| <img src="data/inputs/city.avif" style="width: 400px; height: 300px; object-fit: cover;">  |  <img src="data/outputs/city.webp" style="width: 400px; height: 300px; object-fit: cover;">  |
+| <img src="data/inputs/street.png" style="width: 400px; height: 300px; object-fit: cover;"> | <img src="data/outputs/street.webp" style="width: 400px; height: 300px; object-fit: cover;"> |
+
+### 🏮 Cyberpunk 2077 (New)
+
+_Our framework was successfully extended to the Cyberpunk domain by training on 20 in-game screenshots. This demonstrates the system's ability to handle high-contrast digital aesthetics._
+
+|                                 Source Image (Real Photo)                                  |                                      Cyberpunk Style Output                                      |
+| :----------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------: |
+| <img src="data/inputs/city.avif" style="width: 400px; height: 300px; object-fit: cover;">  |  <img src="results/cyberpunk/city.png" style="width: 400px; height: 300px; object-fit: cover;">  |
+| <img src="data/inputs/street.png" style="width: 400px; height: 300px; object-fit: cover;"> | <img src="results/cyberpunk/street.png" style="width: 400px; height: 300px; object-fit: cover;"> |
+
+#### ⚠️ Research Edge Cases (Hallucinations)
+
+_One of the core findings of our research is 'Semantic Overpowering.' When the domain gap is too wide, the AI will prioritize the LoRA style over the source structure._
+
+|                                       Source: Forest                                       |                                      Output: Cyber-Skyline                                       |                                       Source: Mountain                                       |                                       Output: Snowboarder Hallucination                                       |
+| :----------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------: |
+| <img src="data/inputs/forest.jpg" style="width: 200px; height: 150px; object-fit: cover;"> | <img src="results/cyberpunk/forest.png" style="width: 200px; height: 150px; object-fit: cover;"> | <img src="data/inputs/mountain.png" style="width: 200px; height: 150px; object-fit: cover;"> | <img src="results/cyberpunk/mountain(erroneous).png" style="width: 200px; height: 150px; object-fit: cover;"> |
+
+---
+
+## Quick Start
+
+### 1. Installation
+
 ```powershell
 .\setup_windows.ps1
 .\venv\Scripts\activate
 ```
 
-### 2. Invert an Image
-Take a real image and calculate its noise map:
-```powershell
-$env:PYTHONPATH="src"
-python src/inversion.py --input_image assets/test_images/cats/cat_1.png --results_folder results/cat_1
+### 2. Interactive UI
+
+Experience the framework's capabilities through our professional Gradio dashboard:
+
+```bash
+python app_gradio.py
 ```
 
-### 3. Edit the Image
-Transform the image using a predefined task (e.g., `cat2dog`):
-```powershell
-$env:PYTHONPATH="src"
-python src/edit_real.py --inversion results/cat_1/inversion/cat_1.pt --prompt results/cat_1/prompt/cat_1.txt --task_name cat2dog --results_folder results/cat_1 --use_float_16
+---
+
+## How to Train Your Own Style
+
+The power of this framework is its extensibility. You can train a new style in minutes on a consumer GPU.
+
+1.  **Prepare Data**: Place ~20 images of your desired style in `data/your_style`.
+2.  **Run Training**:
+    ```bash
+    python train_lora.py --instance_data_dir data/your_style --output_dir models/lora/your_style --instance_prompt "in your style"
+    ```
+3.  **Deploy**: Your new style will automatically appear in the Gradio UI dropdown.
+
+---
+
+## Command Line Usage
+
+For batch processing and research pipelines, use the CLI scripts:
+
+### A. Invert an Image
+
+```bash
+python src/utils/ddim_inv.py --img assets/test_images/cats/cat_1.png --prompt "a photo of a cat"
 ```
-*Note: Using `--use_float_16` is highly recommended for GPUs with 8GB VRAM (like RTX 4060) to speed up the process by 3-5x.*
 
-### 4. Custom Directions (e.g., Human to Anime)
-1. Create `source.txt` (e.g., descriptions of "a photo of a person") and `target.txt` (e.g., "anime style face").
-2. Generate the direction:
-   ```powershell
-   python src/make_edit_direction.py --file_source_sentences source.txt --file_target_sentences target.txt --output_folder assets/embeddings_sd_1.4
-   ```
-3. Use the task name `source2target` in the `edit_real.py` command.
+### B. Edit with Style
+
+```bash
+python src/utils/edit_pipeline.py --lora_path models/lora/ghibli --edit_dir "ghibli style"
+```
 
 ---
 
-## 🛠️ Project Implementation & Modernization
-This repository was modernized and stabilized to support a research presentation on Zero-shot Image-to-Image translation. The original codebase suffered from "dependency rot" and was no longer runnable in modern Python environments. 
+## ⚙️ Stability & Performance Engineering
 
-### **Key Improvements:**
-*   **Environment Stability**: Updated for **Python 3.12** and **CUDA 12.x**.
-*   **Architecture Patches**: Updated U-Net attention hooks to be compatible with modern `diffusers` (0.25+) and `transformers` (4.35+) architectures.
-*   **Robust Captioning**: Replaced the legacy `salesforce-lavis` BLIP implementation with a stable, standard `transformers` BLIP model to resolve runtime tensor mismatches.
-*   **GPU Optimization**: Added `--use_float_16` support, enabling the pipeline to run efficiently on consumer GPUs (e.g., RTX 4060) by reducing VRAM usage and speeding up the editing process by ~5x.
-*   **Reproducibility**: Integrated a `setup_windows.ps1` script for one-click environment configuration.
+To make this framework production-ready for consumer hardware (e.g., RTX 3060/4060 with 8GB VRAM), we implemented several critical optimizations:
 
-This version serves as a stable baseline for demonstrating the Pix2Pix-Zero research paper in current software ecosystems.
+### 1. Mixed Precision Strategy (FP16 vs. FP32)
 
----
+- **The Problem**: Running full `float32` on Stable Diffusion v1-4 quickly exceeds 12GB of VRAM, causing OOM crashes. However, running pure `float16` on Windows often leads to **NaN collapses** (resulting in completely black or "salt-and-pepper" images).
+- **Our Solution**: We use **Selective Precision**. The model weights are loaded in `float16` to save memory, but the **Cross-Attention Guidance Loss** is calculated in `float32`.
+- **Trade-off**: This provides the memory efficiency of a small model with the numerical stability of a large research cluster.
 
-<div class="gif">
-<p align="center">
-<img src='assets/main.gif' align="center">
-</p>
-</div>
+### 2. Gradient Clipping
 
+- **The Problem**: LoRA style injection can sometimes be "too aggressive," causing pixel values to explode and resulting in over-saturated, "fried" looking images.
+- **Our Solution**: We implemented `torch.nn.utils.clip_grad_norm_` on the latent updates. This acts as a "safety valve," ensuring the style transfer remains aesthetic and doesn't destroy the underlying image structure.
 
-We propose pix2pix-zero, a diffusion-based image-to-image approach that allows users to specify the edit direction on-the-fly (e.g., cat to dog). Our method can directly use pre-trained [Stable Diffusion](https://github.com/CompVis/stable-diffusion), for editing real and synthetic images while preserving the input image's structure. Our method is training-free and prompt-free, as it requires neither manual text prompting for each input image nor costly fine-tuning for each task.
+### 3. VRAM Garbage Collection
 
-**TL;DR**: no finetuning required, no text input needed, input structure preserved.
+- **The Problem**: Python's garbage collector is often too slow to keep up with the heavy VRAM demands of diffusion pipelines.
+- **Our Solution**: We explicitly use `del pipe` and `torch.cuda.empty_cache()` at every stage-transition (Inversion -> Loading LoRA -> Editing). This ensures the GPU is "clean" before every major operation.
 
---- 
+### 4. Robustness Fixes
 
-### Corresponding Manuscript
-[Zero-shot Image-to-Image Translation](https://pix2pixzero.github.io/) <br>
-[Gaurav Parmar](https://gauravparmar.com/),
-[Krishna Kumar Singh](http://krsingh.cs.ucdavis.edu/),
-[Richard Zhang](https://richzhang.github.io/),
-[Yijun Li](https://yijunmaverick.github.io/),
-[Jingwan Lu](https://research.adobe.com/person/jingwan-lu/),
-[Jun-Yan Zhu](https://www.cs.cmu.edu/~junyanz/)<br>
-CMU and  Adobe <br>
-SIGGRAPH, 2023
+- **Path Management**: Fixed Windows-specific pathing issues and added `pillow-avif` support for modern image formats.
+- **Dependency Injection**: Resolved several scope-related issues (e.g., PIL NameErrors) to ensure the pipeline runs as a standalone Python package.
 
 ---
 
+## 🔬 Technical Deep-Dive
 
-## Results
-All our results are based on [stable-diffusion-v1-4](https://github.com/CompVis/stable-diffusion) model. Please the website for more results.
+1.  **DDIM Inversion**: Extracts the initial noise latent to preserve the source image's identity.
+2.  **Cross-Attention Guidance**: Uses a guided SGD loop to ensure structural layout remains unchanged.
+3.  **Parameter-Efficient Fine-Tuning**: Leverages `peft` to inject domain-specific weights ($W' = W + BA$).
 
-<div>
-<p align="center">
-<img src='assets/results_teaser.jpg' align="center" width=800px>
-</p>
-</div>
-<hr>
+---
 
-The top row for each of the results below show editing of real images, and the bottom row shows synthetic image editing.
-<div>
-<p align="center">
-<img src='assets/grid_dog2cat.jpg' align="center" width=800px>
-</p>
+## Research & Citations
 
-<p align="center">
-<img src='assets/grid_cat_lowpoly.jpg' align="center" width=800px>
-</p>
-<p align="center">
-<img src='assets/grid_cat_boba.jpg' align="center" width=800px>
-</p>
-<p align="center">
-<img src='assets/grid_cat_suit.jpg' align="center" width=800px>
-</p>
-<p align="center">
-<img src='assets/grid_cat_hat.jpg' align="center" width=800px>
-</p>
-<p align="center">
-<img src='assets/grid_cat_crochetcat.jpg' align="center" width=800px>
-</p>
+Our project is documented in the manuscript: **"Pix2Pix-Zero-LoRA: Parameter-Efficient Style Transfer with Structural Integrity"**.
 
-<p align="center">
-<img src='assets/grid_cat2dog.jpg' align="center" width=800px>
-</p>
+### References
 
-<p align="center">
-<img src='assets/grid_person_robot.jpg' align="center" width=800px>
-</p>
+```bibtex
+@inproceedings{parmar2023pix2pixzero,
+  title={Zero-shot Image-to-Image Translation},
+  author={Parmar, Gaurav and Singh, Krishna Kumar and Zhang, Richard and Li, Yijun and Lu, Jingwan and Zhu, Jun-Yan},
+  booktitle={ACM SIGGRAPH 2023 Conference Proceedings},
+  year={2023}
+}
+```
 
+---
 
-<p align="center">
-<img src='assets/grid_horse2zebra.jpg' align="center" width=800px>
-</p>
-<p align="center">
-<img src='assets/grid_tree2fall.jpg' align="center" width=800px>
-</p>
-</div>
+## Contributing & License
 
-## Real Image Editing
-<div>
-<p align="center">
-<img src='assets/results_real.jpg' align="center" width=800px>
-</p>
-</div>
-
-## Synthetic Image Editing
-<div>
-<p align="center">
-<img src='assets/results_syn.jpg' align="center" width=800px>
-</p>
-</div>
-
-## Method Details
-
-Given an input image, we first generate text captions using [BLIP](https://github.com/salesforce/LAVIS) and apply regularized DDIM inversion to obtain our inverted noise map.
-Then, we obtain reference cross-attention maps that correspoind to the structure of the input image by denoising, guided with the CLIP embeddings 
-of our generated text (c). Next, we denoise with edited text embeddings, while enforcing a loss to match current cross-attention maps with the 
-reference cross-attention maps.
-
-<div>
-<p align="center">
-<img src='assets/method.jpeg' align="center" width=900>
-</p>
-</div>
-
-
-## Getting Started
-
-**Environment Setup**
-- We provide a [conda env file](environment.yml) that contains all the required dependencies
-  ```
-  conda env create -f environment.yml
-  ```
-- Following this, you can activate the conda environment with the command below. 
-  ```
-  conda activate pix2pix-zero
-  ```
-
-**Real Image Translation**
-- First, run the inversion command below to obtain the input noise that reconstructs the image. 
-  The command below will save the inversion in the results folder as `output/test_cat/inversion/cat_1.pt` 
-  and the BLIP-generated prompt as `output/test_cat/prompt/cat_1.txt`
-    ```
-    python src/inversion.py  \
-            --input_image "assets/test_images/cats/cat_1.png" \
-            --results_folder "output/test_cat"
-    ```
-- Next, we can perform image editing with the editing direction as shown below.
-  The command below will save the edited image as `output/test_cat/edit/cat_1.png`
-    ```
-    python src/edit_real.py \
-        --inversion "output/test_cat/inversion/cat_1.pt" \
-        --prompt "output/test_cat/prompt/cat_1.txt" \
-        --task_name "cat2dog" \
-        --results_folder "output/test_cat/" 
-    ```
-
-**Editing Synthetic Images**
-- Similarly, we can edit the synthetic images generated by Stable Diffusion with the following command.
-    ```
-    python src/edit_synthetic.py \
-        --results_folder "output/synth_editing" \
-        --prompt_str "a high resolution painting of a cat in the style of van gogh" \
-        --task "cat2dog"
-    ```
-
-### **Gradio demo**
-- We also provide a UI for testing our method that is built with gradio. This demo also supports generating new directions on the fly! Running the following command in a terminal will launch the demo: 
-    ```
-    python app_gradio.py
-    ```
-- This demo is also hosted on HuggingFace [here](https://huggingface.co/spaces/pix2pix-zero-library/pix2pix-zero-demo).
-
-### **Tips and Debugging**
-  - **Controlling the Image Structure:**<br>
-    The `--xa_guidance` flag controls the amount of cross-attention guidance to be applied when performing the edit. If the output edited image does not retain the structure from the input, increasing the value will typically address the issue. We recommend changing the value in increments of 0.05. 
-
-  - **Improving Image Quality:**<br>
-    If the output image quality is low or has some artifacts, using more steps for both the inversion and editing would be helpful. 
-    This can be controlled with the `--num_ddim_steps` flag. 
-
-  - **Reducing the VRAM Requirements:**<br>
-    We can reduce the VRAM requirements using lower precision and setting the flag `--use_float_16`. 
-
-<br>
-
-**Finding Custom Edit Directions**<br>
- - We provide some pre-computed directions in the assets [folder](assets/embeddings_sd_1.4).
-   To generate new edit directions, users can first generate two files containing a large number of sentences (~1000) and then run the command as shown below. 
-    ```
-      python src/make_edit_direction.py \
-        --file_source_sentences sentences/apple.txt \
-        --file_target_sentences sentences/orange.txt \
-        --output_folder assets/embeddings_sd_1.4
-    ```
-- After running the above command, you can set the flag `--task apple2orange` for the new edit.
-
-
-
-## Comparison
-Comparisons with different baselines, including, SDEdit + word swap, DDIM + word swap, and prompt-to-propmt. Our method successfully applies the edit, while preserving the structure of the input image. 
-<div>
-<p align="center">
-<img src='assets/comparison.jpg' align="center" width=900>
-</p>
-</div>
-
-
-
-### Note:
-The original implementation for the regularized DDIM Inversion had an implementation issue where the random roll would sometimes not get applied. Please see the updated code [here](https://github.com/pix2pixzero/pix2pix-zero/blob/main/src/utils/ddim_inv.py#L32) for the updated version.
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md). Licensed under the MIT License.

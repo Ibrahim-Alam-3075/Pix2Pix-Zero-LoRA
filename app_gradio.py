@@ -1,4 +1,7 @@
 import os
+# Set HuggingFace Cache to D Drive
+os.environ["HF_HOME"] = "D:/huggingface_cache"
+os.environ["TRANSFORMERS_CACHE"] = "D:/huggingface_cache"
 import pdb
 from PIL import Image
 import gradio as gr
@@ -19,131 +22,68 @@ def get_available_loras():
 
 
 if __name__=="__main__":
-    # populate the list of editing directions
-    d_name2desc = hf_get_all_directions_names()
-    d_name2desc["make your own!"] = "make your own!"
-
-    with gr.Blocks(css=CSS_main) as demo:
+    with gr.Blocks(css=CSS_main, theme=gr.themes.Soft(primary_hue="blue")) as demo:
         # Make the header of the demo website
         gr.HTML(HTML_header)
 
         with gr.Row():
-            # col A: the input image or synthetic image prompt
-            with gr.Column(scale=2) as gc_left:
-                gr.HTML(" <center> <p style='font-size:150%;'> input </p> </center>")
-                img_in_real = gr.Image(type="pil", label="Start by uploading an image", elem_id="input_image")
-                img_in_synth = gr.Image(type="pil", label="Synthesized image", elem_id="input_image_synth", visible=False)
-                gr.Examples( examples="assets/test_images/cats", inputs=[img_in_real])
-                real_caption = gr.Textbox(label="Real Image Caption (Auto-generated, edit to fix hallucinations):", interactive=True, visible=True)
-                prompt = gr.Textbox(value="a high resolution painting of a cat in the style of van gogh", label="Or use a synthetic image. Prompt:", interactive=True)
-                with gr.Row():
-                    seed = gr.Number(value=42, label="random seed:", interactive=True)
-                    negative_guidance = gr.Number(value=5, label="negative guidance:", interactive=True)
-                btn_generate = gr.Button("Generate")
+            # col A: Input Image
+            with gr.Column(scale=2):
+                gr.HTML("<center><p style='font-size:150%;'>1. Upload Source Image</p></center>")
+                img_in_real = gr.Image(type="pil", label="Original Photo", elem_id="input_image")
+                gr.Examples(examples="assets/test_images/cats", inputs=[img_in_real])
+                
+                real_caption = gr.Textbox(label="Source Image Description (Override BLIP):", placeholder="e.g. A majestic snowy mountain peak (Leave blank for Auto-Caption)", interactive=True)
+                
+                # Synthetic hidden for now as per "LoRA only" request
+                img_in_synth = gr.Image(type="pil", visible=False)
                 fpath_z_gen = gr.Textbox(value="placeholder", visible=False)
+                prompt = gr.Textbox(visible=False)
+                seed = gr.Number(value=42, visible=False)
+                negative_guidance = gr.Number(value=5, visible=False)
 
-            # col B: the output image
-            with gr.Column(scale=2) as gc_left:
-                gr.HTML(" <center> <p style='font-size:150%;'> output </p> </center>")
-                img_out = gr.Image(type="pil", label="Output Image", visible=True)
-                with gr.Row():
-                    with gr.Column():
-                        src = gr.Dropdown(list(d_name2desc.values()), label="source", interactive=True, value="cat")
-                        src_custom = gr.Textbox(placeholder="enter new task here!", interactive=True, visible=False, label="custom source direction:")
-                        rad_src = gr.Radio(["GPT3", "flan-t5-xl (free)!", "BLOOMZ-7B (free)!", "fixed-template", "custom sentences"], label="Sentence type:", value="GPT3", interactive=True, visible=False)
-                        custom_sentences_src = gr.Textbox(placeholder="paste list of sentences here", interactive=True, visible=False, label="custom sentences:", lines=5, max_lines=20)
-                    
-                    with gr.Column():
-                        dest = gr.Dropdown(list(d_name2desc.values()), label="target", interactive=True, value="dog")
-                        dest_custom = gr.Textbox(placeholder="enter new task here!", interactive=True, visible=False, label="custom target direction:")
-                        rad_dest = gr.Radio(["GPT3", "flan-t5-xl (free)!", "BLOOMZ-7B (free)!", "fixed-template", "custom sentences"], label="Sentence type:", value="GPT3", interactive=True, visible=False)
-                        custom_sentences_dest = gr.Textbox(placeholder="paste list of sentences here", interactive=True, visible=False, label="custom sentences:", lines=5, max_lines=20)
-                    
-                    with gr.Row():
-                        api_key = gr.Textbox(placeholder="enter you OpenAI API key here", interactive=True, visible=False, label="OpenAI API key:", type="password")
-                        org_key = gr.Textbox(placeholder="enter you OpenAI organization key here", interactive=True, visible=False, label="OpenAI Organization:", type="password")
-                with gr.Row():
-                    btn_edit = gr.Button("Run")
-                    # btn_clear = gr.Button("Clear")
+            # col B: Style Settings
+            with gr.Column(scale=2):
+                gr.HTML("<center><p style='font-size:150%;'>2. Apply Artistic Style</p></center>")
+                
+                lora_model = gr.Dropdown(get_available_loras(), label="Selected LoRA Style", value=get_available_loras()[1] if len(get_available_loras()) > 1 else "None", interactive=True)
+                
+                target_style = gr.Textbox(value="ghibli style", label="Describe the target style:", placeholder="e.g. ghibli style, oil painting, cyberpunk", interactive=True)
+                
+                with gr.Accordion("Optimization Sliders", open=True):
+                    num_ddim = gr.Slider(20, 200, 50, label="DDIM Steps (Quality)", interactive=True, step=10)
+                    xa_guidance = gr.Slider(0, 0.25, 0.15, label="Structure Preservation (Cross-Attn)", interactive=True, step=0.01)
+                    edit_mul = gr.Slider(0, 2, 1.0, label="Style Strength", interactive=True, step=0.05)
 
-                with gr.Accordion("Change editing settings?", open=True):
-                    num_ddim = gr.Slider(0, 200, 100, label="Number of DDIM steps", interactive=True, elem_id="slider_ddim", step=10)
-                    xa_guidance = gr.Slider(0, 0.25, 0.1, label="Cross Attention guidance", interactive=True, elem_id="slider_xa", step=0.01)
-                    edit_mul = gr.Slider(0, 2, 1.0, label="Edit multiplier", interactive=True, elem_id="slider_edit_mul", step=0.05)
-                    lora_model = gr.Dropdown(get_available_loras(), label="Trained LoRA Model", value="None", interactive=True)
+                btn_edit = gr.Button(" Transform Image", variant="primary")
+                
+                gr.HTML("<center><p style='font-size:150%;'>3. Result</p></center>")
+                img_out = gr.Image(type="pil", label="Stylized Output", visible=True)
 
-                with gr.Accordion("Generating your own directions", open=False):
-                    gr.Textbox("We provide 5 different ways of computing new custom directions:", show_label=False)
-                    gr.Textbox("We use GPT3 to generate a list of sentences that describe the desired edit. For this options, the users need to make an OpenAI account and enter the API and organizations keys. This option typically results is the best directions and costs roughly $0.14 for one concept.", label="1. GPT3", show_label=True)
-                    gr.Textbox("Alternatively flan-t5-xl model can also be used to to generate a list of sentences that describe the desired edit. This option is free and does not require creating any new accounts.", label="2. flan-t5-xl (free)", show_label=True)
-                    gr.Textbox("Similarly BLOOMZ-7B model can also be used to to generate the sentences for free.", label="3. BLOOMZ-7B (free)", show_label=True)
-                    gr.Textbox("Next, we provide a fixed template based sentence generation. This option does not require any language model and is therefore free and much faster. However the edit directions with this method are often entangled.", label="4. Fixed template", show_label=True)
-                    gr.Textbox("Finally, the user can also generate their own sentences.", label="5. Custom sentences", show_label=True)
+        # Hidden fields to satisfy launch_main signature without cluttering UI
+        src_preset = gr.Textbox(value="make your own!", visible=False)
+        dest_preset = gr.Textbox(value="make your own!", visible=False)
+        src_custom = gr.Textbox(value="photo", visible=False)
+        rad_type = gr.Textbox(value="fixed-template", visible=False)
+        empty_key = gr.Textbox(value="", visible=False)
 
-                with gr.Accordion("Tips for getting better results", open=True):
-                    gr.Textbox("The 'Cross Attention guidance' controls the amount of structure guidance to be applied when performing the edit. If the output edited image does not retain the structure from the input, increasing the value will typically address the issue. We recommend changing the value in increments of 0.05.", label="1. Controlling the image structure", show_label=True)
-                    gr.Textbox("If the output image quality is low or has some artifacts, using more steps would be helpful. This can be controlled with the 'Number of DDIM steps' slider.", label="2. Improving Image Quality", show_label=True)
-                    gr.Textbox("There can be two reasons why the output image does not have the desired edit applied. Either the cross attention guidance is too strong, or the edit is insufficient. These can be addressed by reducing the 'Cross Attention guidance' slider or increasing the 'Edit multiplier' respectively.", label="3. Amount of edit applied", show_label=True)
-
-        btn_generate.click(launch_generate_sample, [prompt, seed, negative_guidance, num_ddim, lora_model], [img_in_synth, fpath_z_gen])
-        def fn_set_none():
-            return gr.update(value=None)
-        btn_generate.click(fn_set_none, [], img_in_real)
-        btn_generate.click(set_visible_true, [], img_in_synth)
-        btn_generate.click(set_visible_false, [], img_in_real)
-
-
-        def fn_clear_all():
-            return gr.update(value=None), gr.update(value=None), gr.update(value=None)
-        
-        img_in_real.clear(fn_clear_all, [], [img_out, img_in_real, img_in_synth])
-        img_in_real.clear(set_visible_true, [], img_in_synth)
-        img_in_real.clear(set_visible_false, [], img_in_real)
-
-        img_in_synth.clear(fn_clear_all, [], [img_out, img_in_real, img_in_synth])
-        img_in_synth.clear(set_visible_true, [], img_in_real)
-        img_in_synth.clear(set_visible_false, [], img_in_synth)
-
-        img_out.clear(fn_clear_all, [], [img_out, img_in_real, img_in_synth])
-
-
-        
-        # handling custom directions
-        def on_custom_seleceted(src):
-            if src=="make your own!": return gr.update(visible=True), gr.update(visible=True), gr.update(visible=True), gr.update(visible=True)
-            else: return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
-        
-        src.change(on_custom_seleceted, [src], [src_custom, rad_src, api_key, org_key])
-        dest.change(on_custom_seleceted, [dest], [dest_custom, rad_dest, api_key, org_key])
-
-
-        def fn_sentence_type_change(rad):
-            if rad=="GPT3":
-                return gr.update(visible=True), gr.update(visible=True), gr.update(visible=False)
-            elif rad=="custom sentences":
-                return gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)
-            else:
-                print("using template sentence or flan-t5-xl or bloomz-7b")
-                return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
-
-        rad_dest.change(fn_sentence_type_change, [rad_dest], [api_key, org_key, custom_sentences_dest])
-        rad_src.change(fn_sentence_type_change, [rad_src], [api_key, org_key, custom_sentences_src])
-
-        btn_edit.click(launch_main,
-                        [
-                            img_in_real, img_in_synth,
-                            src, src_custom, dest,
-                            dest_custom, num_ddim,
-                            xa_guidance, edit_mul,
-                            fpath_z_gen, prompt,
-                            rad_src, rad_dest,
-                            api_key, org_key,
-                            custom_sentences_src, custom_sentences_dest,
-                            lora_model, real_caption
-                        ],
-                [img_out]
+        btn_edit.click(
+            fn=launch_main,
+            inputs=[
+                img_in_real, img_in_synth,
+                src_preset, src_custom, dest_preset,
+                target_style, num_ddim,
+                xa_guidance, edit_mul,
+                fpath_z_gen, prompt,
+                rad_type, rad_type,
+                empty_key, empty_key,
+                empty_key, empty_key,
+                lora_model, real_caption
+            ],
+            outputs=[img_out]
         )
-        gr.HTML("<hr>")
+        
+        gr.HTML("<hr><center>Developed for the Pix2Pix-Zero-Ghibli Research Paper</center>")
 
     gr.close_all()
     demo.queue(default_concurrency_limit=1)

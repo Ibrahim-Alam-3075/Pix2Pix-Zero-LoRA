@@ -18,5 +18,8 @@ When using the `app_gradio.py` or `edit_cli.py`, select `ghibli` from the LoRA d
 - **Target Prompt**: "Studio Ghibli style painting"
 
 ## Examples
-- **Input**: A photo of a girl sitting on a park bench.
-- **Output**: A painterly, cel-shaded version of the same scene, preserving the original pose and background structure.
+| Source Image | Ghibli Output |
+| :---: | :---: |
+| <img src="../../../data/inputs/city.avif" width="300"> | <img src="../../../data/outputs/city.webp" width="300"> |
+| <img src="../../../data/inputs/street.png" width="300"> | <img src="../../../data/outputs/street.webp" width="300"> |
+| <img src="../../../data/inputs/mountain.png" width="300"> | <img src="../../../data/outputs/mountain.webp" width="300"> |
