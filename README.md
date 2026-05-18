@@ -13,7 +13,7 @@
 
 ## Visual Showcase: Multi-Style Support
 
-Our framework is style-agnostic. Below is our flagship **Studio Ghibli** engine, alongside our newly trained **Cyberpunk 2077** model.
+Our framework is style-agnostic. Below is our **Studio Ghibli** engine, alongside our newly trained **Cyberpunk 2077** model.
 
 ### 🍃 Studio Ghibli (Flagship)
 
